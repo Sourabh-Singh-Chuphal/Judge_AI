@@ -12,30 +12,9 @@ interface Field {
   editable: boolean;
 }
 
-const MOCK_FIELDS: Field[] = [
-  { id: 'case_id', label: 'Case ID', value: 'WP/12345/2024', confidence: 97, editable: false },
-  { id: 'petitioner', label: 'Petitioner', value: 'Sri Ramesh Kumar', confidence: 91, editable: true },
-  { id: 'respondent', label: 'Respondent', value: 'State of Karnataka, Revenue Dept.', confidence: 88, editable: true },
-  { id: 'date_judgment', label: 'Judgment Date', value: '2024-03-15', confidence: 95, editable: true },
-  { id: 'compliance_deadline', label: 'Compliance Deadline', value: '2024-06-15 (90 days)', confidence: 64, editable: true },
-  { id: 'responsible_dept', label: 'Responsible Department', value: 'Revenue & Disaster Mgmt.', confidence: 72, editable: true },
-  { id: 'directive', label: 'Core Directive', value: 'Issue caste certificate within 30 days of application receipt per Rule 7(2).', confidence: 43, editable: true },
-  { id: 'action_path', label: 'Action Path', value: 'COMPLY', confidence: 89, editable: false },
-  { id: 'appeal_deadline', label: 'Appeal Deadline (if applicable)', value: 'N/A', confidence: 55, editable: true },
-  { id: 'bench', label: 'Bench', value: 'Hon\'ble Justice S.R. Krishnakumar', confidence: 82, editable: true },
-];
+const MOCK_FIELDS: Field[] = []; // Empty by default
 
-const MOCK_ACTION_PLAN = {
-  path: 'COMPLY',
-  summary: 'The judgment directs the Revenue Department to issue a caste certificate within 30 days. No grounds for appeal identified. Recommend immediate compliance.',
-  steps: [
-    'Assign case to Revenue Dept. nodal officer',
-    'Acknowledge receipt within 7 days (by 2024-03-22)',
-    'Issue certificate within 30 days of application (per Rule 7(2))',
-    'File compliance report with HC Registry by 2024-06-15',
-  ],
-  risks: ['Certificate issuance pending verification — sub-30-day risk if records are incomplete.'],
-};
+const MOCK_ACTION_PLAN = null;
 
 function confidenceClass(c: number) {
   if (c >= 70) return 'high';
@@ -128,21 +107,18 @@ export default function ReviewerDashboard() {
           </div>
         </div>
 
-        {/* Approval banner */}
-        {status === 'pending' && lowConf > 0 && (
-          <div style={{
-            background: 'var(--red-bg)', border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: 12, padding: '0.85rem 1.25rem', marginBottom: '1.5rem',
-            display: 'flex', alignItems: 'center', gap: '0.75rem'
-          }}>
-            <AlertTriangle size={16} color="var(--red)" />
-            <span style={{ color: 'var(--red)', fontSize: '0.875rem', fontWeight: 600 }}>
-              {lowConf} field(s) below 50% confidence — mandatory officer review required before approval.
-            </span>
+        {/* No Data State */}
+        {!currentResult && (
+          <div className="card" style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+            <FileText size={48} color="var(--text-muted)" style={{ margin: '0 auto 1.5rem', opacity: 0.3 }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>No Extraction Data Available</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Please upload a judgment PDF to begin the AI audit process.</p>
+            <Link to="/upload" className="btn btn-primary" style={{ display: 'inline-flex' }}>Upload PDF Now</Link>
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '1.5rem' }}>
+        {currentResult && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '1.5rem' }}>
 
           {/* LEFT — Fields table */}
           <div>
