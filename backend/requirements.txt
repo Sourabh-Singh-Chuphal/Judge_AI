@@ -13,3 +13,4 @@ spacy
 tesseract
 opencv-python
 httpx
+google-generativeai
