@@ -298,7 +298,8 @@ export default function ReviewerDashboard() {
               )}
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
