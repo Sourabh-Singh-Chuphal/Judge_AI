@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileText, CheckCircle, XCircle, Edit3, AlertTriangle,
   Clock, User, Building, Scale, Calendar, ChevronDown, ChevronUp, Info
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface Field {
   id: string;
@@ -12,9 +14,14 @@ interface Field {
   editable: boolean;
 }
 
-const MOCK_FIELDS: Field[] = []; // Empty by default
+const DEFAULT_PLAN = {
+  path: 'UNKNOWN',
+  summary: 'Analysis pending or no directives found.',
+  steps: [],
+  risks: []
+};
 
-const MOCK_ACTION_PLAN = null;
+const MOCK_FIELDS: Field[] = []; // Empty by default
 
 function confidenceClass(c: number) {
   if (c >= 70) return 'high';
@@ -33,11 +40,6 @@ function confidenceIcon(c: number) {
   if (c >= 50) return <AlertTriangle size={11} />;
   return <AlertTriangle size={11} />;
 }
-
-import { useAuth } from '../context/AuthContext';
-import { useEffect } from 'react';
-
-// ... (keep existing interface and helper functions)
 
 export default function ReviewerDashboard() {
   const { currentResult } = useAuth();
@@ -63,7 +65,7 @@ export default function ReviewerDashboard() {
     }
   }, [currentResult]);
 
-  const plan = currentResult?.action_plan || MOCK_ACTION_PLAN;
+  const plan = currentResult?.action_plan || DEFAULT_PLAN;
 
   const startEdit = (f: Field) => {
     setEditingId(f.id);
@@ -92,7 +94,7 @@ export default function ReviewerDashboard() {
               Reviewer Dashboard
             </h1>
             <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0', fontSize: '0.875rem' }}>
-              Case WP/12345/2024 · Assigned to you · Received 2024-03-16
+              {currentResult?.case_id || 'WP/12345/2024'} · Assigned to you · Received {new Date().toISOString().split('T')[0]}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -231,11 +233,7 @@ export default function ReviewerDashboard() {
                     overflow: 'auto', padding: '1.5rem', fontFamily: 'Georgia, serif', 
                     color: '#1a1a1a', fontSize: '0.78rem', lineHeight: 1.8
                   }}>
-                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Mock preview shown (Upload a file for real preview)</p>
-                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                      <p style={{ fontWeight: 700, margin: '0 0 0.25rem' }}>IN THE HIGH COURT OF KARNATAKA AT BENGALURU</p>
-                      <p>DATED THIS THE 15TH DAY OF MARCH, 2024</p>
-                    </div>
+                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No file preview available.</p>
                   </div>
                 )}
               </div>
@@ -254,7 +252,7 @@ export default function ReviewerDashboard() {
               >
                 <Scale size={14} color="var(--accent)" />
                 <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>AI Action Plan</span>
-                <span className="badge badge-green" style={{ marginLeft: 'auto' }}>{MOCK_ACTION_PLAN.path}</span>
+                <span className="badge badge-green" style={{ marginLeft: 'auto' }}>{plan.path}</span>
                 {showPlan ? <ChevronUp size={14} color="var(--text-muted)" /> : <ChevronDown size={14} color="var(--text-muted)" />}
               </button>
               {showPlan && (
@@ -284,14 +282,14 @@ export default function ReviewerDashboard() {
                       </div>
                     ))}
                   </div>
-                  {MOCK_ACTION_PLAN.risks.map((r, i) => (
+                  {plan.risks.map((r: any, i: number) => (
                     <div key={i} style={{
                       background: 'var(--amber-bg)', border: '1px solid rgba(245,158,11,0.25)',
                       borderRadius: 8, padding: '0.65rem 0.85rem',
                       display: 'flex', gap: '0.5rem', alignItems: 'flex-start'
                     }}>
                       <AlertTriangle size={13} color="var(--amber)" style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span style={{ fontSize: '0.8rem', color: 'var(--amber)', lineHeight: 1.5 }}>{r}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--amber)', lineHeight: 1.5 }}>{typeof r === 'string' ? r : r}</span>
                     </div>
                   ))}
                 </div>
