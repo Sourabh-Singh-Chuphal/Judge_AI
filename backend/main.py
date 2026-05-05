@@ -1,5 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 from .schemas.judgment import JudgmentResponse, JudgmentExtractionSchema, ExtractedField, ActionPlan, ActionStep
 from datetime import date
 from typing import List
@@ -57,6 +60,24 @@ async def upload_judgment(file: UploadFile = File(...)):
         status="PENDING",
         created_at=date.today()
     )
+
+# Serve static files from the 'dist' directory
+if os.path.exists("dist"):
+    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Exclude API routes from the catch-all
+        if full_path.startswith("upload") or full_path.startswith("judgments"):
+            raise HTTPException(status_code=404)
+        
+        # Check if file exists in dist
+        file_path = os.path.join("dist", full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # Default to index.html for SPA routing
+        return FileResponse("dist/index.html")
 
 @app.get("/judgments", response_model=List[JudgmentResponse])
 async def list_judgments():
