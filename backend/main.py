@@ -4,9 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 from .schemas.judgment import JudgmentResponse, JudgmentExtractionSchema, ExtractedField, ActionPlan, ActionStep
-from datetime import date
+from .services.ingestion import extract_text_from_pdf
+from datetime import date, datetime, timedelta
 from typing import List
 import uuid
+import re
+import shutil
 
 app = FastAPI(title="JudgeAI API", version="0.1.0")
 
@@ -26,38 +29,80 @@ async def upload_judgment(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
     
-    # Mock processing
-    judgment_id = str(uuid.uuid4())
+    # Save file temporarily to process
+    temp_path = f"temp_{file.filename}"
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
     
-    # Placeholder for actual extraction logic
-    mock_extraction = JudgmentExtractionSchema(
-        case_id=ExtractedField(value="WP/12345/2024", confidence=0.97),
-        petitioner=ExtractedField(value="Sri Ramesh Kumar", confidence=0.91),
-        respondent=ExtractedField(value="State of Karnataka, Revenue Dept.", confidence=0.88),
-        judgment_date=ExtractedField(value="2024-03-15", confidence=0.95),
-        compliance_deadline=ExtractedField(value="2024-06-15", confidence=0.64),
-        responsible_department=ExtractedField(value="Revenue & Disaster Mgmt.", confidence=0.72),
-        core_directive=ExtractedField(value="Issue caste certificate within 30 days of application receipt per Rule 7(2).", confidence=0.43)
-    )
-    
-    mock_plan = ActionPlan(
-        summary="The judgment directs the Revenue Department to issue a caste certificate within 30 days.",
-        path="COMPLY",
-        steps=[
-            ActionStep(description="Assign case to Revenue Dept. nodal officer", deadline=date(2024, 3, 22)),
-            ActionStep(description="Issue certificate within 30 days", deadline=date(2024, 6, 15))
-        ],
-        risks=["Certificate issuance pending verification — sub-30-day risk if records are incomplete."]
-    )
-    
-    return JudgmentResponse(
-        id=judgment_id,
-        filename=file.filename,
-        extraction=mock_extraction,
-        action_plan=mock_plan,
-        status="PENDING",
-        created_at=date.today()
-    )
+    try:
+        # Extract text
+        text = extract_text_from_pdf(temp_path)
+        
+        # Simple AI extraction logic (Simulated NLP)
+        # In a real app, this would use spaCy or an LLM
+        judgment_id = str(uuid.uuid4())
+        
+        # Extract Case ID (e.g., WP 123/2024 or CIVIL APPEAL 1/2024)
+        case_match = re.search(r"(WRIT PETITION|CIVIL APPEAL|O\.A\.)\s+(?:NO\.\s+)?([\w/]+)", text, re.I)
+        case_id = case_match.group(0) if case_match else "UNKNOWN-ID"
+        
+        # Extract Parties
+        petitioner_match = re.search(r"Petitioner:\s*(.*)|Appellant:\s*(.*)|Applicant:\s*(.*)", text, re.I)
+        petitioner = petitioner_match.group(1) or petitioner_match.group(2) or petitioner_match.group(3) or "Unknown Petitioner"
+        petitioner = petitioner.split('\n')[0].strip()
+        
+        respondent_match = re.search(r"Respondent:\s*(.*)", text, re.I)
+        respondent = respondent_match.group(1).split('\n')[0].strip() if respondent_match else "State Respondent"
+        
+        # Extract Dates
+        date_match = re.search(r"JUDGMENT DATE:\s*(\d{4}-\d{2}-\d{2})", text, re.I)
+        judgment_date = date_match.group(1) if date_match else str(date.today())
+        
+        # Compliance Logic
+        deadline_match = re.search(r"within (\d+) days", text, re.I)
+        days = int(deadline_match.group(1)) if deadline_match else 30
+        
+        dt_obj = datetime.strptime(judgment_date, "%Y-%m-%d")
+        compliance_dt = (dt_obj + timedelta(days=days)).date()
+        
+        # Dynamic Action Plan
+        risks = []
+        if days < 30:
+            risks.append("Urgent deadline: High risk of non-compliance if process not started immediately.")
+        if "penalty" in text.lower():
+            risks.append("Financial penalty involved: Ensure fund allocation is prioritized.")
+        
+        mock_extraction = JudgmentExtractionSchema(
+            case_id=ExtractedField(value=case_id, confidence=0.95),
+            petitioner=ExtractedField(value=petitioner, confidence=0.92),
+            respondent=ExtractedField(value=respondent, confidence=0.89),
+            judgment_date=ExtractedField(value=judgment_date, confidence=0.98),
+            compliance_deadline=ExtractedField(value=str(compliance_dt), confidence=0.85),
+            responsible_department=ExtractedField(value="Relevant Nodal Office", confidence=0.70),
+            core_directive=ExtractedField(value=f"Compliance required within {days} days as per court order.", confidence=0.75)
+        )
+        
+        mock_plan = ActionPlan(
+            summary=f"The court directs {petitioner} and {respondent} to comply with the order by {compliance_dt}.",
+            path="COMPLY",
+            steps=[
+                ActionStep(description="Initial case filing and departmental notification", deadline=(dt_obj + timedelta(days=7)).date()),
+                ActionStep(description="Final compliance and report submission", deadline=compliance_dt)
+            ],
+            risks=risks if risks else ["No high-priority risks detected."]
+        )
+        
+        return JudgmentResponse(
+            id=judgment_id,
+            filename=file.filename,
+            extraction=mock_extraction,
+            action_plan=mock_plan,
+            status="PENDING",
+            created_at=date.today()
+        )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 # Serve static files from the 'dist' directory
 if os.path.exists("dist"):
