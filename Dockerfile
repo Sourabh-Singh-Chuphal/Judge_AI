@@ -1,12 +1,4 @@
-# Build Stage for Frontend
-FROM node:18-alpine AS build-stage
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npx vite build
-
-# Production Stage
+# Production-Ready Dockerfile
 FROM python:3.11-slim
 WORKDIR /app
 
@@ -20,8 +12,8 @@ RUN apt-get update && apt-get install -y \
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# Copy built frontend from build-stage
-COPY --from=build-stage /app/dist ./dist
+# Copy the PRE-BUILT frontend dist folder
+COPY dist ./dist
 
 # Copy backend code
 COPY backend ./backend
