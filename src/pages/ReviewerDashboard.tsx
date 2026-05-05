@@ -55,12 +55,36 @@ function confidenceIcon(c: number) {
   return <AlertTriangle size={11} />;
 }
 
+import { useAuth } from '../context/AuthContext';
+import { useEffect } from 'react';
+
+// ... (keep existing interface and helper functions)
+
 export default function ReviewerDashboard() {
+  const { currentResult } = useAuth();
   const [fields, setFields] = useState<Field[]>(MOCK_FIELDS);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [status, setStatus] = useState<'pending' | 'approved' | 'rejected' | 'editing'>('pending');
   const [showPlan, setShowPlan] = useState(true);
+
+  useEffect(() => {
+    if (currentResult && currentResult.extraction) {
+      const ext = currentResult.extraction;
+      const dynamicFields: Field[] = [
+        { id: 'case_id', label: 'Case ID', value: ext.case_id.value, confidence: Math.round(ext.case_id.confidence * 100), editable: false },
+        { id: 'petitioner', label: 'Petitioner', value: ext.petitioner.value, confidence: Math.round(ext.petitioner.confidence * 100), editable: true },
+        { id: 'respondent', label: 'Respondent', value: ext.respondent.value, confidence: Math.round(ext.respondent.confidence * 100), editable: true },
+        { id: 'date_judgment', label: 'Judgment Date', value: ext.judgment_date.value, confidence: Math.round(ext.judgment_date.confidence * 100), editable: true },
+        { id: 'compliance_deadline', label: 'Compliance Deadline', value: ext.compliance_deadline.value, confidence: Math.round(ext.compliance_deadline.confidence * 100), editable: true },
+        { id: 'responsible_dept', label: 'Responsible Department', value: ext.responsible_department.value, confidence: Math.round(ext.responsible_department.confidence * 100), editable: true },
+        { id: 'directive', label: 'Core Directive', value: ext.core_directive.value, confidence: Math.round(ext.core_directive.confidence * 100), editable: true },
+      ];
+      setFields(dynamicFields);
+    }
+  }, [currentResult]);
+
+  const plan = currentResult?.action_plan || MOCK_ACTION_PLAN;
 
   const startEdit = (f: Field) => {
     setEditingId(f.id);
@@ -211,46 +235,33 @@ export default function ReviewerDashboard() {
           {/* RIGHT — PDF viewer + action plan */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-            {/* Mock PDF Viewer */}
+            {/* PDF Viewer */}
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <FileText size={14} color="var(--accent)" />
                 <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>Judgment PDF</span>
-                <span className="badge badge-muted" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>WP_12345_2024.pdf</span>
+                <span className="badge badge-muted" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>{currentResult?.filename || 'WP_12345_2024.pdf'}</span>
               </div>
-              <div style={{
-                height: 320, background: '#f5f5f0',
-                display: 'flex', flexDirection: 'column', overflow: 'auto', padding: '1.5rem',
-                fontFamily: 'Georgia, serif', color: '#1a1a1a', fontSize: '0.78rem', lineHeight: 1.8,
-                position: 'relative'
-              }}>
-                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                  <p style={{ fontWeight: 700, margin: '0 0 0.25rem', fontSize: '0.85rem' }}>IN THE HIGH COURT OF KARNATAKA AT BENGALURU</p>
-                  <p style={{ margin: '0 0 0.25rem' }}>DATED THIS THE 15TH DAY OF MARCH, 2024</p>
-                  <p style={{ margin: 0 }}>BEFORE THE HON'BLE JUSTICE S.R. KRISHNAKUMAR</p>
-                </div>
-                <p style={{ margin: '0.75rem 0' }}><strong>WRIT PETITION No. 12345/2024</strong></p>
-                <p style={{ margin: '0.5rem 0' }}>
-                  <strong>BETWEEN:</strong><br />
-                  Sri Ramesh Kumar, S/o Late Govinda Kumar,<br />
-                  R/o No. 14, 3rd Cross, Yelahanka, Bengaluru — 560064
-                  <br /><span style={{ fontStyle: 'italic' }}>... Petitioner</span>
-                </p>
-                <p style={{ margin: '0.5rem 0' }}>
-                  <strong>AND:</strong><br />
-                  State of Karnataka, Rep. by its Secretary,<br />
-                  Dept. of Revenue & Disaster Management, Bengaluru
-                  <br /><span style={{ fontStyle: 'italic' }}>... Respondent</span>
-                </p>
-                <div style={{
-                  background: 'rgba(108,99,255,0.12)', border: '2px solid rgba(108,99,255,0.4)',
-                  borderRadius: 6, padding: '0.5rem 0.75rem', margin: '0.75rem 0'
-                }}>
-                  <p style={{ margin: 0, color: '#3a3090' }}><strong>ORDER</strong><br />
-                  The respondent is directed to issue the caste certificate to the petitioner within <strong>30 days</strong> of receipt of application, in accordance with Rule 7(2) of the Karnataka Scheduled Castes and Scheduled Tribes (Regulation of Issue of Caste Certificate) Rules, 2002.</p>
-                </div>
-                <p style={{ margin: '0.5rem 0', color: '#555' }}>The petition is accordingly disposed of. No costs.</p>
-                <p style={{ margin: '0.5rem 0', textAlign: 'right', fontWeight: 700 }}>Sd/-<br />JUDGE</p>
+              <div style={{ height: 500, background: '#f5f5f0' }}>
+                {currentResult?.fileUrl ? (
+                  <iframe 
+                    src={currentResult.fileUrl} 
+                    title="PDF Preview" 
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                ) : (
+                  <div style={{
+                    height: '100%', display: 'flex', flexDirection: 'column', 
+                    overflow: 'auto', padding: '1.5rem', fontFamily: 'Georgia, serif', 
+                    color: '#1a1a1a', fontSize: '0.78rem', lineHeight: 1.8
+                  }}>
+                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Mock preview shown (Upload a file for real preview)</p>
+                    <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                      <p style={{ fontWeight: 700, margin: '0 0 0.25rem' }}>IN THE HIGH COURT OF KARNATAKA AT BENGALURU</p>
+                      <p>DATED THIS THE 15TH DAY OF MARCH, 2024</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -278,12 +289,12 @@ export default function ReviewerDashboard() {
                   }}>
                     <Info size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                      <em>AI suggests</em>: {MOCK_ACTION_PLAN.summary}
+                      <em>AI suggests</em>: {plan.summary}
                     </p>
                   </div>
                   <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 0.5rem' }}>Steps</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                    {MOCK_ACTION_PLAN.steps.map((s, i) => (
+                    {plan.steps.map((s: any, i: number) => (
                       <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                         <span style={{
                           width: 18, height: 18, borderRadius: 6,
@@ -291,7 +302,9 @@ export default function ReviewerDashboard() {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent-light)', flexShrink: 0
                         }}>{i + 1}</span>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s}</span>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                          {typeof s === 'string' ? s : s.description}
+                        </span>
                       </div>
                     ))}
                   </div>

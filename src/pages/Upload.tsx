@@ -13,28 +13,53 @@ const STAGES: { key: Stage; label: string; sub: string }[] = [
 ];
 
 export default function UploadPage() {
-  const { markPdfReady } = useAuth();
+  const { markPdfReady, setResult } = useAuth();
   const [stage, setStage] = useState<Stage>('idle');
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  const simulate = (name: string) => {
-    markPdfReady(false);
-    setFileName(name);
+  const processFile = async (file: File) => {
+    setFileName(file.name);
     setStage('uploading');
-    setTimeout(() => setStage('ocr'), 1200);
-    setTimeout(() => setStage('nlp'), 2600);
-    setTimeout(() => {
+    markPdfReady(false);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Step 1: Upload & Process
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+      
+      setStage('ocr');
+      await new Promise(r => setTimeout(r, 800)); // Visual pause for UX
+      
+      setStage('nlp');
+      const data = await response.json();
+      
+      // Step 2: Save result
+      setResult({
+        ...data,
+        fileUrl: URL.createObjectURL(file) // Create local preview URL
+      });
+      
       setStage('done');
       markPdfReady(true);
-    }, 4000);
+    } catch (err) {
+      console.error(err);
+      setStage('error');
+    }
   };
 
   const handleFile = (file: File) => {
     if (file.type !== 'application/pdf') { setStage('error'); return; }
-    simulate(file.name);
+    processFile(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {

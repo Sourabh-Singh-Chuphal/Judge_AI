@@ -25,6 +25,8 @@ type AuthContextValue = {
   logout: () => void;
   isPdfReady: boolean;
   markPdfReady: (value: boolean) => void;
+  currentResult: any | null;
+  setResult: (data: any) => void;
 };
 
 const USERS_KEY = 'judgeai_users';
@@ -72,6 +74,7 @@ function readSession(): AuthSession | null {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthSession | null>(null);
   const [isPdfReady, setIsPdfReady] = useState(false);
+  const [currentResult, setCurrentResult] = useState<any | null>(null);
 
   useEffect(() => {
     setUser(readSession());
@@ -120,7 +123,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsPdfReady(value);
       localStorage.setItem(PDF_READY_KEY, String(value));
     },
-  }), [user, isPdfReady]);
+    currentResult,
+    setResult: (data) => setCurrentResult(data),
+  }), [user, isPdfReady, currentResult]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
