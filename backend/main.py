@@ -19,9 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to JudgeAI API"}
+# Root route handled by frontend catch-all below
 
 @app.post("/upload", response_model=JudgmentResponse)
 async def upload_judgment(file: UploadFile = File(...)):
