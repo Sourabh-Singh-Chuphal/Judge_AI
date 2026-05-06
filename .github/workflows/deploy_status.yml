@@ -11,7 +11,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       
+      - name: Start Deployment
+        id: deployment
+        uses: bobheadxi/deployments@v1
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: Production
+
       - name: Update Deployment Status
-        run: |
-          echo "Syncing with Render..."
-          echo "Deployment successful to https://judge-ai-3.onrender.com"
+        uses: bobheadxi/deployments@v1
+        if: always()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          env_url: https://judge-ai-3.onrender.com
