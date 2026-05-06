@@ -34,3 +34,13 @@ class JudgmentResponse(BaseModel):
     action_plan: Optional[ActionPlan] = None
     status: str  # PENDING, APPROVED, REJECTED
     created_at: date
+    preview_text: Optional[str] = None
+
+class ChatRequest(BaseModel):
+    judgment_id: str
+    question: str
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: List[str] = []
+    used_model: str

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
   FileText, CheckCircle, XCircle, Edit3, AlertTriangle,
-  Clock, User, Building, Scale, Calendar, ChevronDown, ChevronUp, Info
+  Clock, User, Building, Scale, Calendar, ChevronDown, ChevronUp, Info,
+  Send, Bot, MessageSquare
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,12 @@ interface Field {
   confidence: number;
   editable: boolean;
 }
+
+type ChatMessage = {
+  role: 'assistant' | 'user';
+  content: string;
+  sources?: string[];
+};
 
 const DEFAULT_PLAN = {
   path: 'UNKNOWN',
@@ -43,11 +50,19 @@ function confidenceIcon(c: number) {
 
 export default function ReviewerDashboard() {
   const { currentResult } = useAuth();
+  const pdfUrl = currentResult?.pdfUrl || (currentResult?.id ? `/judgments/${currentResult.id}/pdf` : '');
+  const textUrl = currentResult?.textUrl || (currentResult?.id ? `/judgments/${currentResult.id}/text` : '');
   const [fields, setFields] = useState<Field[]>(MOCK_FIELDS);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [status, setStatus] = useState<'pending' | 'approved' | 'rejected' | 'editing'>('pending');
   const [showPlan, setShowPlan] = useState(true);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    { role: 'assistant', content: 'Ask me about the uploaded judgment, deadlines, parties, risks, or required compliance steps.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [previewText, setPreviewText] = useState('');
 
   useEffect(() => {
     if (currentResult && currentResult.extraction) {
@@ -62,8 +77,28 @@ export default function ReviewerDashboard() {
         { id: 'directive', label: 'Core Directive', value: ext.core_directive.value, confidence: Math.round(ext.core_directive.confidence * 100), editable: true },
       ];
       setFields(dynamicFields);
+      setChatMessages([
+        { role: 'assistant', content: 'I am ready to answer questions from this uploaded judgment. I will stay grounded in the PDF text.' }
+      ]);
+      setPreviewText(currentResult.previewText || '');
     }
   }, [currentResult]);
+
+  useEffect(() => {
+    if (!textUrl || previewText) return;
+
+    let cancelled = false;
+    fetch(textUrl)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!cancelled && data?.text) setPreviewText(data.text);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [textUrl, previewText]);
 
   const plan = currentResult?.action_plan || DEFAULT_PLAN;
 
@@ -79,6 +114,42 @@ export default function ReviewerDashboard() {
 
   const handleApprove = () => setStatus('approved');
   const handleReject = () => setStatus('rejected');
+
+  const askChat = async () => {
+    const question = chatInput.trim();
+    if (!question || !currentResult?.id || chatLoading) return;
+
+    setChatInput('');
+    setChatLoading(true);
+    setChatMessages(prev => [...prev, { role: 'user', content: question }]);
+
+    try {
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ judgment_id: currentResult.id, question }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail || 'Chat request failed');
+      }
+
+      const data = await response.json();
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.answer,
+        sources: Array.isArray(data.sources) ? data.sources : [],
+      }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: err instanceof Error ? err.message : 'I could not answer from the judgment right now.',
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   const lowConf = fields.filter(f => f.confidence < 50).length;
   const amberConf = fields.filter(f => f.confidence >= 50 && f.confidence < 70).length;
@@ -219,23 +290,125 @@ export default function ReviewerDashboard() {
                 <FileText size={14} color="var(--accent)" />
                 <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>Judgment PDF</span>
                 <span className="badge badge-muted" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>{currentResult?.filename || 'WP_12345_2024.pdf'}</span>
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ padding: '0.25rem 0.55rem', borderRadius: 8, fontSize: '0.72rem' }}>
+                    Open PDF
+                  </a>
+                )}
               </div>
-              <div style={{ height: 500, background: '#f5f5f0' }}>
-                {currentResult?.fileUrl ? (
-                  <iframe 
-                    src={currentResult.fileUrl} 
-                    title="PDF Preview" 
-                    style={{ width: '100%', height: '100%', border: 'none' }}
-                  />
+              <div style={{ height: 500, background: '#f5f5f0', overflow: 'auto', padding: '1rem' }}>
+                {previewText ? (
+                  <div style={{
+                    minHeight: '100%',
+                    background: '#fff',
+                    border: '1px solid rgba(15,23,42,0.12)',
+                    boxShadow: '0 10px 24px rgba(15,23,42,0.08)',
+                    padding: '1.4rem',
+                    fontFamily: 'Georgia, serif',
+                    color: '#111827',
+                    fontSize: '0.78rem',
+                    lineHeight: 1.7,
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {previewText}
+                  </div>
                 ) : (
                   <div style={{
                     height: '100%', display: 'flex', flexDirection: 'column', 
-                    overflow: 'auto', padding: '1.5rem', fontFamily: 'Georgia, serif', 
+                    justifyContent: 'center', padding: '1.5rem', fontFamily: 'Georgia, serif', 
                     color: '#1a1a1a', fontSize: '0.78rem', lineHeight: 1.8
                   }}>
-                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No file preview available.</p>
+                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Text preview is loading. If this remains empty, upload the PDF again.</p>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Judgment Chat */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MessageSquare size={14} color="var(--accent)" />
+                <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>Judgment Chat</span>
+                <span className="badge badge-muted" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>Grounded in PDF</span>
+              </div>
+              <div style={{
+                height: 320, overflow: 'auto', padding: '1rem',
+                display: 'flex', flexDirection: 'column', gap: '0.75rem',
+                background: 'var(--bg-secondary)'
+              }}>
+                {chatMessages.map((m, i) => (
+                  <div key={i} style={{
+                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '92%',
+                    display: 'flex',
+                    gap: '0.5rem',
+                    flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
+                    alignItems: 'flex-start'
+                  }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: 8,
+                      background: m.role === 'user' ? 'var(--accent)' : 'var(--bg-card)',
+                      color: m.role === 'user' ? '#fff' : 'var(--accent)',
+                      border: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {m.role === 'user' ? <User size={13} /> : <Bot size={13} />}
+                    </div>
+                    <div style={{
+                      background: m.role === 'user' ? 'var(--accent)' : 'var(--bg-card)',
+                      color: m.role === 'user' ? '#fff' : 'var(--text-secondary)',
+                      border: m.role === 'user' ? 'none' : '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: '0.65rem 0.75rem',
+                      fontSize: '0.82rem',
+                      lineHeight: 1.55,
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      {m.content}
+                      {m.sources && m.sources.length > 0 && (
+                        <details style={{ marginTop: '0.6rem', color: 'var(--text-muted)' }}>
+                          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Source excerpts</summary>
+                          {m.sources.slice(0, 3).map((s, sourceIndex) => (
+                            <p key={sourceIndex} style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', lineHeight: 1.45 }}>
+                              {s}
+                            </p>
+                          ))}
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    <Bot size={13} /> Reading the judgment...
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '0.85rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
+                <input
+                  className="input"
+                  value={chatInput}
+                  placeholder="Ask about this judgment"
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      askChat();
+                    }
+                  }}
+                  disabled={chatLoading}
+                  style={{ fontSize: '0.82rem' }}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={askChat}
+                  disabled={chatLoading || !chatInput.trim()}
+                  style={{ padding: '0.65rem 0.85rem', borderRadius: 10 }}
+                  title="Send question"
+                >
+                  <Send size={15} />
+                </button>
               </div>
             </div>
 

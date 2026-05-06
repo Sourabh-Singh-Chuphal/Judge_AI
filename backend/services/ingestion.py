@@ -5,13 +5,21 @@ import numpy as np
 
 def extract_text_from_pdf(file_path: str):
     """
-    Extracts text using PyMuPDF for digital text.
+    Extracts text from digital PDFs. PyMuPDF is fast, but some generated PDFs
+    expose incomplete text there, so keep pdfplumber as a quality fallback.
     """
+    pymupdf_text = ""
     doc = fitz.open(file_path)
-    text = ""
     for page in doc:
-        text += page.get_text()
-    return text
+        pymupdf_text += page.get_text()
+
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            pdfplumber_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+    except Exception:
+        pdfplumber_text = ""
+
+    return pdfplumber_text if len(pdfplumber_text.strip()) > len(pymupdf_text.strip()) else pymupdf_text
 
 def extract_tables_from_pdf(file_path: str):
     """

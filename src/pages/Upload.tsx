@@ -46,7 +46,9 @@ export default function UploadPage() {
       // Step 2: Save result
       setResult({
         ...data,
-        fileUrl: URL.createObjectURL(file) // Create local preview URL
+        pdfUrl: `/judgments/${data.id}/pdf`,
+        textUrl: `/judgments/${data.id}/text`,
+        previewText: data.preview_text,
       });
       
       setStage('done');

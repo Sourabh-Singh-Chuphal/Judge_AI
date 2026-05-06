@@ -1,18 +1,32 @@
-from fpdf import FPDF
 import os
+import textwrap
+
+import fitz
+
 
 def create_sample_pdf(filename, content):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("helvetica", size=12)
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    y = 56
+
     for line in content:
-        pdf.multi_cell(190, 10, text=line, align='L')
-    
-    os.makedirs('tests/samples', exist_ok=True)
-    pdf.output(f"tests/samples/{filename}")
+        wrapped = textwrap.wrap(line, width=92) if line else [""]
+        for part in wrapped:
+            if y > 780:
+                page = doc.new_page(width=595, height=842)
+                y = 56
+            if part:
+                page.insert_text((56, y), part, fontsize=11, fontname="helv", color=(0, 0, 0))
+            y += 17
+        if line.endswith(":"):
+            y += 4
+
+    os.makedirs("tests/samples", exist_ok=True)
+    doc.save(f"tests/samples/{filename}", deflate=True, garbage=4)
+    doc.close()
     print(f"Created {filename}")
 
-# Case 1: Land Dispute
+
 case_1 = [
     "IN THE HIGH COURT OF KARNATAKA AT BENGALURU",
     "WRIT PETITION NO. 45678 OF 2024",
@@ -33,10 +47,9 @@ case_1 = [
     "",
     "IT IS SO ORDERED.",
     "",
-    "Compliance Deadline: 2024-06-10"
+    "Compliance Deadline: 2024-06-10",
 ]
 
-# Case 2: Service Matter
 case_2 = [
     "SUPREME COURT OF INDIA",
     "CIVIL APPEAL NO. 1122 OF 2024",
@@ -52,10 +65,9 @@ case_2 = [
     "DIRECTIVE: The respondent is directed to reinstate the appellant with 50% back wages within 30 days.",
     "The Ministry of Defence must issue the appointment order immediately.",
     "",
-    "Compliance Deadline: 2024-05-31"
+    "Compliance Deadline: 2024-05-31",
 ]
 
-# Case 3: Environmental
 case_3 = [
     "NATIONAL GREEN TRIBUNAL",
     "O.A. NO. 99 OF 2024",
@@ -71,7 +83,7 @@ case_3 = [
     "DIRECTIVE: The company is directed to pay a penalty of INR 5,00,000 to the Environment Relief Fund within 90 days.",
     "The State Pollution Control Board must inspect the site and certify compliance.",
     "",
-    "Compliance Deadline: 2024-06-20"
+    "Compliance Deadline: 2024-06-20",
 ]
 
 if __name__ == "__main__":

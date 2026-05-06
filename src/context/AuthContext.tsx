@@ -32,6 +32,7 @@ type AuthContextValue = {
 const USERS_KEY = 'judgeai_users';
 const SESSION_KEY = 'judgeai_session';
 const PDF_READY_KEY = 'judgeai_pdf_ready';
+const RESULT_KEY = 'judgeai_current_result';
 
 const seedUsers: AuthUser[] = [
   { name: 'Review Officer', email: 'officer@karnataka.gov.in', password: 'Officer@123', role: 'officer' },
@@ -79,6 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setUser(readSession());
     setIsPdfReady(localStorage.getItem(PDF_READY_KEY) === 'true');
+    const rawResult = localStorage.getItem(RESULT_KEY);
+    if (rawResult) {
+      try {
+        setCurrentResult(JSON.parse(rawResult));
+      } catch {
+        localStorage.removeItem(RESULT_KEY);
+      }
+    }
     readUsers();
   }, []);
 
@@ -116,15 +125,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout: () => {
       setUser(null);
       setIsPdfReady(false);
+      setCurrentResult(null);
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(PDF_READY_KEY);
+      localStorage.removeItem(RESULT_KEY);
     },
     markPdfReady: (value) => {
       setIsPdfReady(value);
       localStorage.setItem(PDF_READY_KEY, String(value));
     },
     currentResult,
-    setResult: (data) => setCurrentResult(data),
+    setResult: (data) => {
+      setCurrentResult(data);
+      if (data) localStorage.setItem(RESULT_KEY, JSON.stringify(data));
+      else localStorage.removeItem(RESULT_KEY);
+    },
   }), [user, isPdfReady, currentResult]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
