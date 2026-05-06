@@ -14,23 +14,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
-      - name: Start Deployment
-        id: deployment
-        uses: bobheadxi/deployments@v1
-        with:
-          step: start
-          token: ${{ secrets.GITHUB_TOKEN }}
-          env: Production
-          desc: "Updating Render deployment status"
 
-      - name: Update Deployment Status
-        uses: bobheadxi/deployments@v1
-        if: always()
+      - name: Update Repository Website
+        continue-on-error: true
+        run: |
+          curl -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }} \
+            -d '{"homepage":"https://judge-ai-3.onrender.com"}'
+      
+      - name: Create GitHub Deployment
+        id: deployment
+        uses: chrnorm/deployment-action@v2
         with:
-          step: finish
           token: ${{ secrets.GITHUB_TOKEN }}
-          status: ${{ job.status }}
-          env: Production
-          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
-          env_url: https://judge-ai-3.onrender.com
+          environment: Production
+          initial-status: success
+          environment-url: https://judge-ai-3.onrender.com
+          description: "Live on Render"
