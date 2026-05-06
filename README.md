@@ -7,7 +7,7 @@
 [![Live Demo](https://img.shields.io/badge/%F0%9F%9A%80_LIVE_DEMO-CLICK_HERE-green?style=for-the-badge)](https://judge-ai-3.onrender.com)
 [![GitHub](https://img.shields.io/badge/GITHUB-REPOSITORY-black?style=for-the-badge&logo=github)](https://github.com/Sourabh-Singh-Chuphal/Judge_AI)
 [![Powered By](https://img.shields.io/badge/POWERED_BY-FASTAPI_%26_REACT-blue?style=for-the-badge)](https://fastapi.tiangolo.com/)
-[![Deployed On](https://img.shields.io/badge/DEPLOYED_ON-RENDER-indigo?style=for-the-badge)](https://render.com/)
+[![Deployed On](https://img.shields.io/badge/DEPLOYED_ON-RENDER-indigo?style=for-the-badge)](https://judge-ai-3.onrender.com)
 
 ---
 
@@ -41,6 +41,9 @@ Whether you're a compliance officer or a legal reviewer, JudgeAI gives you **mac
 * *Extract compliance deadlines automatically.*
 * *Review AI confidence scores for every field.*
 * *Generate a risk-aware action plan instantly.*
+
+> [!NOTE]
+> The platform is now officially hosted on Render for better stability and GPU-accelerated OCR support.
 
 ---
 
